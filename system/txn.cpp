@@ -152,8 +152,6 @@ void TxnManager::init(uint64_t pool_id, Workload *h_wl)
     commit_rsp_cnt = prep_rsp_cnt + 1;
     chkpt_cnt = 2 * g_min_invalid_nodes;
 
-    batchreq = NULL;
-
     txn_stats.init();
 }
 
@@ -331,15 +329,6 @@ uint64_t TxnManager::get_hashSize()
     return hashSize;
 }
 
-
-void TxnManager::set_primarybatch(BatchRequests *breq) 
-{
-	char *buf = create_msg_buffer(breq);
-	Message *deepMsg = deep_copy_msg(buf, breq);
-	batchreq = (BatchRequests *)deepMsg;
-	delete_msg_buffer(buf);
-}	
-
 bool TxnManager::is_chkpt_ready()
 {
     return chkpt_flag;
@@ -397,15 +386,6 @@ bool TxnManager::is_committed()
     return committed_local;
 }
 
-
-void TxnManager::add_commit_msg(PBFTCommitMessage *pcmsg) 
-{
-	char *buf = create_msg_buffer(pcmsg);
-	Message *deepMsg = deep_copy_msg(buf, pcmsg);
-	commit_msgs.push_back((PBFTCommitMessage *)deepMsg);
-	delete_msg_buffer(buf);
-}
-
 uint64_t TxnManager::decr_commit_rsp_cnt()
 {
     commit_rsp_cnt--;
@@ -422,8 +402,8 @@ uint64_t TxnManager::get_commit_rsp_cnt()
 //broadcasts prepare message to all nodes
 void TxnManager::send_pbft_prep_msgs()
 {
-    //printf("%ld Send PBFT_PREP_MSG message to %d nodes\n", get_txn_id(), g_node_cnt - 1);
-    //fflush(stdout);
+    printf("%ld Send PBFT_PREP_MSG message to %d nodes\n", get_txn_id(), g_node_cnt - 1);
+    fflush(stdout);
 
     Message *msg = Message::create_message(this, PBFT_PREP_MSG);
     PBFTPrepMessage *pmsg = (PBFTPrepMessage *)msg;
@@ -437,14 +417,43 @@ void TxnManager::send_pbft_prep_msgs()
 
     vector<string> emptyvec;
     vector<uint64_t> dest;
-    for (uint64_t i = 0; i < g_node_cnt; i++)
-    {
-        if (i == g_node_id)
-        {
-            continue;
-        }
-        dest.push_back(i);
+
+//    99
+//    199
+//    299
+//    399
+//    [1,2,3]
+//    [4,5,6]
+
+    UInt32 Nodes_to_send = (((int)get_txn_id() - 99)/100)% shard_num;
+
+    uint64_t beg = Nodes_to_send * (g_node_cnt - 1)/shard_num + 1;
+    uint64_t end = (Nodes_to_send + 1) * (g_node_cnt - 1)/shard_num + 1;
+    dest = nodes_to_send(beg, end);
+    if (g_node_id != 0) {
+        dest.push_back(0);
     }
+
+    for (auto i : dest){
+
+        std::cout<<i<<" prepare dest gnodeid :"<<g_node_id<<std::endl;
+        fflush(stdout);
+    }
+//     for (uint64_t i = 0; i < g_node_cnt; i++)
+//    {
+//        if (i == g_node_id)
+//        {
+//            continue;
+//        }
+//        dest.push_back(i);
+//
+////        UInt32 txn = get_txn_id();
+////        std::cout<<txn<<" transaction id in txn send pbft prep";
+////
+////        if (txn% shard_num == i) {
+////            dest.push_back(i);
+////        }
+//    }
 
     msg_queue.enqueue(get_thd_id(), pmsg, emptyvec, dest);
     dest.clear();
@@ -453,8 +462,8 @@ void TxnManager::send_pbft_prep_msgs()
 //broadcasts commit message to all nodes
 void TxnManager::send_pbft_commit_msgs()
 {
-    //cout << "Send PBFT_COMMIT_MSG messages " << get_txn_id() << "\n";
-    //fflush(stdout);
+    cout << "Send PBFT_COMMIT_MSG messages " << get_txn_id() << "\n";
+    fflush(stdout);
 
     Message *msg = Message::create_message(this, PBFT_COMMIT_MSG);
     PBFTCommitMessage *cmsg = (PBFTCommitMessage *)msg;
@@ -468,14 +477,30 @@ void TxnManager::send_pbft_commit_msgs()
 
     vector<string> emptyvec;
     vector<uint64_t> dest;
-    for (uint64_t i = 0; i < g_node_cnt; i++)
-    {
-        if (i == g_node_id)
-        {
-            continue;
-        }
-        dest.push_back(i);
+
+    UInt32 Nodes_to_send = (((int)get_txn_id() - 99)/100) % shard_num;
+
+    uint64_t beg = Nodes_to_send * (g_node_cnt - 1)/shard_num + 1;
+    uint64_t end = (Nodes_to_send + 1) * (g_node_cnt - 1)/shard_num + 1;
+    dest = nodes_to_send(beg, end);
+    if (g_node_id != 0) {
+        dest.push_back(0);
     }
+
+    for (auto i : dest){
+
+        std::cout<<i<<" commit dest gnodeid :"<<g_node_id<<std::endl;
+        fflush(stdout);
+    }
+//    for (uint64_t i = 0; i < g_node_cnt; i++)
+//    {
+//        if (i == g_node_id)
+//        {
+//            continue;
+//        }
+//
+//        dest.push_back(i);
+//    }
 
     msg_queue.enqueue(get_thd_id(), cmsg, emptyvec, dest);
     dest.clear();
@@ -493,16 +518,6 @@ void TxnManager::release_all_messages(uint64_t txn_id)
     {
         info_prepare.clear();
         info_commit.clear();
-	
-	Message::release_message(batchreq);
-
-	PBFTCommitMessage *cmsg;
-	while(commit_msgs.size()>0)
-	{
-		cmsg = (PBFTCommitMessage *)this->commit_msgs[0];
-		commit_msgs.erase(commit_msgs.begin());
-		Message::release_message(cmsg);
-	}
     }
 }
 

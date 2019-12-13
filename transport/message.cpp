@@ -752,82 +752,94 @@ void ClientResponseMessage::sign(uint64_t dest_node)
 //validate message
 bool ClientResponseMessage::validate()
 {
-#if USE_CRYPTO
-	//is signature valid
-	string message = getString(this->return_node_id);
-	if (!validateNodeNode(message, this->pubKey, this->signature, this->return_node_id))
-	{
-		assert(0);
-		return false;
-	}
-#endif
 
-	//count number of accepted response messages for this transaction
-	//cout << "IN: " << this->txn_id << " :: " << this->return_node_id << "\n";
-	//fflush(stdout);
-
-	if (this->txn_id <= get_last_valid_txn())
-	{
-		//cout << "TXN: " << this->txn_id << " :: LT: " << get_last_valid_txn() << "\n";
-		//fflush(stdout);
-		return false;
-	}
-
-	uint64_t k = 0;
-	uint64_t relIndex = this->txn_id % indexSize;
-	ClientResponseMessage clrsp;
-	for (uint64_t i = 0; i < g_node_cnt; i++)
-	{
-		clrsp = clrspStore[relIndex][i];
-		//cout << "TXN: " << clrsp.txn_id << "\n";
-		//fflush(stdout);
-
-		if (clrsp.txn_id == this->txn_id)
-		{
-			k++;
-
-#if CLIENT_RESPONSE_BATCH == true
-			for (uint64_t j = 0; j < get_batch_size(); j++)
-			{
-				if (this->index[j] != clrsp.index[j])
-				{
-					cout << "Idx: " << this->index[j] << " :: " << clrsp.index[j] << " :: " << j << "\n";
-					fflush(stdout);
-					assert(false);
-				}
-				assert(this->client_ts[j] == clrsp.client_ts[j]);
-			}
-#else
-			assert(this->client_startts == clrsp.client_startts);
-#endif
-		}
-	}
-
-	//add valid message to message log
-	clrspStore[relIndex][this->return_node_id] = *this;
-
-	k++; // count message just added
-
-#if TESTING_ON
-	if (k < 1)
-#else
-	if (k < g_min_invalid_nodes + 1)
-#endif
-	{
-		return false;
-	}
-
-	// If true, set this as the next transaction completed.
-	set_last_valid_txn(this->txn_id);
-
-	for (uint64_t i = 0; i < g_node_cnt; i++)
-	{
-		clrsp = clrspStore[relIndex][i];
-		clrsp.txn_id = UINT64_MAX;
-		clrspStore[relIndex][i] = clrsp;
-	}
-
-	return true;
+    cout<<"IN CLient response msg validate"<<endl;
+    return true;
+//#if USE_CRYPTO
+//	//is signature valid
+//	string message = getString(this->return_node_id);
+//	if (!validateNodeNode(message, this->pubKey, this->signature, this->return_node_id))
+//	{
+//	    cout<<" in crypto "
+//		assert(0);
+//		return false;
+//	}
+//#endif
+//
+//	//count number of accepted response messages for this transaction
+//	//cout << "IN: " << this->txn_id << " :: " << this->return_node_id << "\n";
+//	//fflush(stdout);
+//
+//	if (this->txn_id <= get_last_valid_txn())
+//	{
+//		//cout << "TXN: " << this->txn_id << " :: LT: " << get_last_valid_txn() << "\n";
+//		//fflush(stdout);
+//		cout<<"In first if of validate\n";
+//		fflush(stdout);
+//		return false;
+//	}
+//
+//	uint64_t k = 0;
+//	uint64_t relIndex = this->txn_id % indexSize;
+//    txnid_t my_tid = this->txn_id;
+//    UInt32 Nodes_to_send = (((int)my_tid - 99)/100)% shard_num;
+//    uint64_t beg = Nodes_to_send * (g_node_cnt - 1)/shard_num + 1;
+//    uint64_t end = (Nodes_to_send + 1) * (g_node_cnt - 1)/shard_num + 1;
+//	ClientResponseMessage clrsp;
+//
+//	for (uint64_t i = beg; i < end; i++)
+//	{
+//		clrsp = clrspStore[relIndex][i];
+//		cout << "TXN: " << clrsp.txn_id << "\n";
+//		fflush(stdout);
+//
+//		if (clrsp.txn_id == this->txn_id)
+//		{
+//			k++;
+//
+//#if CLIENT_RESPONSE_BATCH == true
+//			for (uint64_t j = 0; j < get_batch_size(); j++)
+//			{
+//				if (this->index[j] != clrsp.index[j])
+//				{
+//					cout << "Idx: " << this->index[j] << " :: " << clrsp.index[j] << " :: " << j << "\n";
+//					fflush(stdout);
+//					assert(false);
+//				}
+//				assert(this->client_ts[j] == clrsp.client_ts[j]);
+//			}
+//#else
+//			assert(this->client_startts == clrsp.client_startts);
+//#endif
+//		}
+//	}
+//
+//	//add valid message to message log
+//	clrspStore[relIndex][this->return_node_id] = *this;
+//
+//	k++; // count message just added
+//
+//#if TESTING_ON
+//	if (k < 1)
+//#else
+//	if (k < g_min_invalid_nodes + 1)
+//#endif
+//	{
+//	    std::cout<<"validate return false"<<std::endl;
+//		return false;
+//	}
+//
+//	// If true, set this as the next transaction completed.
+//	set_last_valid_txn(this->txn_id);
+//
+//	for (uint64_t i = 0; i < g_node_cnt; i++)
+//	{
+//		clrsp = clrspStore[relIndex][i];
+//		clrsp.txn_id = UINT64_MAX;
+//		clrspStore[relIndex][i] = clrsp;
+//	}
+//
+//	return true;
 }
 
 /************************/
@@ -1366,7 +1378,8 @@ void BatchRequests::sign(uint64_t dest_node)
 {
 #if USE_CRYPTO
 	string message = getString(g_node_id);
-
+    cout << "sign batchreq: " << message << "\n";
+	fflush(stdout);
 	signingNodeNode(message, this->signature, this->pubKey, dest_node);
 #else
 	this->signature = "0";
@@ -1381,12 +1394,13 @@ bool BatchRequests::validate(uint64_t thd_id)
 
 #if USE_CRYPTO
 	string message = getString(this->return_node_id);
+    cout << " validate batchreq: "<< message <<endl;
+	cout << "Sign: " << this->signature << "\n";
+	fflush(stdout);
 
-	//cout << "Sign: " << this->signature << "\n";
-	//fflush(stdout);
 
-	//cout << "Pkey: " << this->pubKey << "\n";
-	//fflush(stdout);
+	cout << "Pkey: " << this->pubKey << "\n";
+	fflush(stdout);
 
 	if (!validateNodeNode(message, this->pubKey, this->signature, this->return_node_id))
 	{
@@ -1411,8 +1425,8 @@ bool BatchRequests::validate(uint64_t thd_id)
 		return false;
 	}
 
-	//cout << "Done Hash\n";
-	//fflush(stdout);
+//	cout << this->toString()<< "validate batchreq";
+//	fflush(stdout);
 
 	//is the view the same as the view observed by this message
 #if !RBFT_ON
@@ -1756,6 +1770,8 @@ void PBFTPrepMessage::sign(uint64_t dest_node)
 {
 #if USE_CRYPTO
 	string message = this->toString();
+	cout << "sign prep" << message << "\n";
+	fflush(stdout);
 	signingNodeNode(message, this->signature, this->pubKey, dest_node);
 #else
 	this->signature = "0";
@@ -1770,9 +1786,16 @@ bool PBFTPrepMessage::validate()
 #if USE_CRYPTO
 	//verifies message signature
 	string message = this->toString();
+    cout<<" validate prep:"<<message<<endl;
+    fflush(stdout);
 	if (!validateNodeNode(message, this->pubKey, this->signature, this->return_node_id))
 	{
+
+	    std::cout<<"prep validate return false "<<message<<std::endl;
+	    fflush(stdout);
+
 		assert(0);
+
 		return false;
 	}
 #endif
@@ -1874,7 +1897,8 @@ void PBFTCommitMessage::sign(uint64_t dest_node)
 #if USE_CRYPTO
 	string message = this->toString();
 
-	//cout << "Signing Commit msg: " << message << endl;
+	cout << "Sign Commit msg: " << message << endl;
+	fflush(stdout);
 	signingNodeNode(message, this->signature, this->pubKey, dest_node);
 #else
 	this->signature = "0";
@@ -1886,12 +1910,16 @@ void PBFTCommitMessage::sign(uint64_t dest_node)
 //makes sure message is valid, returns true or false;
 bool PBFTCommitMessage::validate()
 {
+    std::cout<<"before msg\n";
 	string message = this->toString();
 
+    std::cout<<message<< ": validate commit\n";
 #if USE_CRYPTO
 	//verify signature of message
 	if (!validateNodeNode(message, this->pubKey, this->signature, this->return_node_id))
 	{
+	    std::cout<<"commit validate return false " <<message<<std::endl;
+	    fflush(stdout);
 		assert(0);
 		return false;
 	}
